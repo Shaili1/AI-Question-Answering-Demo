@@ -1,0 +1,108 @@
+import gradio as gr
+from transformers import AutoTokenizer, AutoModelForQuestionAnswering, pipeline
+import torch
+
+# Load the model and tokenizer
+model_name = "deepset/roberta-base-squad2"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForQuestionAnswering.from_pretrained(model_name)
+
+# Detect GPU availability
+device = 0 if torch.cuda.is_available() else -1
+
+# Create the pipeline for question answering
+nlp = pipeline('question-answering', model=model, tokenizer=tokenizer, device=device)
+
+
+# Define the prediction function
+def answer_question(context, question):
+    """
+    Processes the context and question with the QA model
+    and returns the answer along with the confidence score.
+    """
+    result = nlp(question=question, context=context)
+    return result['answer'], f"{result['score']:.4f}"  # Format score to 4 decimal places
+
+
+# Custom CSS for buttons
+custom_css = """
+/* Style for the Submit button */
+#submit-btn {
+    background-color: #4CAF50; /* Green */
+    color: white;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+}
+
+#submit-btn:hover {
+    background-color: #45a049; /* Darker green on hover */
+}
+
+/* Style for Clear button */
+#clear-btn {
+    background-color: #f44336; /* Red */
+    color: white;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+}
+
+#clear-btn:hover {
+    background-color: #d32f2f; /* Darker red on hover */
+}
+"""
+
+# Create a more visually appealing Gradio interface
+with gr.Blocks(css=custom_css) as demo:
+    gr.Markdown("# 🧠 AI Question Answering Demo")
+    gr.Markdown(
+        "This demo uses a state-of-the-art question-answering model to extract answers "
+        "from the provided context. Simply input the context and your question to get started!"
+    )
+
+    with gr.Row():
+        context_input = gr.Textbox(
+            lines=12,
+            placeholder="Enter the context text here...",
+            label="📜 Context"
+        )
+        question_input = gr.Textbox(
+            lines=2,
+            placeholder="Enter your question here...",
+            label="❓ Question"
+        )
+
+    with gr.Row():
+        submit_button = gr.Button("Submit", elem_id="submit-btn")
+        clear_button = gr.Button("Clear", elem_id="clear-btn")
+
+    answer_output = gr.Textbox(
+        label="✅ Answer",
+        interactive=False,
+        placeholder="The model's answer will appear here."
+    )
+    score_output = gr.Textbox(
+        label="📊 Confidence Score",
+        interactive=False,
+        placeholder="The confidence score of the answer will appear here."
+    )
+
+    # Link buttons to actions
+    submit_button.click(
+        fn=answer_question,
+        inputs=[context_input, question_input],
+        outputs=[answer_output, score_output]
+    )
+    clear_button.click(
+        fn=lambda: ("", ""),  # Clear both outputs
+        inputs=[],
+        outputs=[answer_output, score_output]
+    )
+
+# Launch the interface
+demo.launch(server_port=7860)
